@@ -177,3 +177,56 @@ class TestBlogWriter:
         state["research_summary"] = "AI is growing fast"
         result = blog_writer_agent(state)
         assert result["blog_post"] is not None
+
+
+class TestLinkedInWriter:
+
+    @patch("src.agents.linkedin_writer.llm")
+    def test_writes_linkedin_post(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(
+            content="AI is changing everything.\n\nHere are 3 things you need to know...\n\n#AI #MachineLearning"
+        )
+        from src.agents.linkedin_writer import linkedin_writer_agent
+        state = create_initial_state("AI trends 2025", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        state["seo_keywords"] = ["AI trends", "machine learning"]
+        result = linkedin_writer_agent(state)
+        assert result["linkedin_post"] is not None
+
+    @patch("src.agents.linkedin_writer.llm")
+    def test_linkedin_post_contains_hashtags(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(
+            content="Great insights on AI.\n\n#AI #MachineLearning #Technology"
+        )
+        from src.agents.linkedin_writer import linkedin_writer_agent
+        state = create_initial_state("AI trends 2025", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        state["seo_keywords"] = ["AI trends"]
+        result = linkedin_writer_agent(state)
+        assert "#" in result["linkedin_post"]
+
+    def test_handles_missing_research_summary(self):
+        from src.agents.linkedin_writer import linkedin_writer_agent
+        state = create_initial_state("AI trends 2025", "test-123")
+        result = linkedin_writer_agent(state)
+        assert result["error"] is not None
+
+    @patch("src.agents.linkedin_writer.llm")
+    def test_agent_path_updated(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(content="LinkedIn post content #AI")
+        from src.agents.linkedin_writer import linkedin_writer_agent
+        state = create_initial_state("AI trends", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        result = linkedin_writer_agent(state)
+        assert "linkedin_writer" in result["agent_path"]
+
+    @patch("src.agents.linkedin_writer.llm")
+    def test_works_without_keywords(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(
+            content="AI is transforming business.\n\n#AI #Innovation"
+        )
+        from src.agents.linkedin_writer import linkedin_writer_agent
+        state = create_initial_state("AI trends", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        result = linkedin_writer_agent(state)
+        assert result["linkedin_post"] is not None
