@@ -36,7 +36,7 @@ class TestQueryHandler:
         state = create_initial_state("Write a blog", "test-123")
         result = query_handler_agent(state)
         assert "query_handler" in result["agent_path"]
-        
+
 
 class TestResearchAgent:
 
@@ -83,3 +83,46 @@ class TestResearchAgent:
         state = create_initial_state("AI trends", "test-123")
         result = research_agent(state)
         assert "research_agent" in result["agent_path"]
+
+
+class TestContentStrategist:
+
+    @patch("src.agents.content_strategist.llm")
+    def test_returns_structured_content(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(
+            content="1. Executive Summary\nGreat topic.\n"
+                    "2. Key Findings\n- Finding 1\n"
+                    "5. Recommended Keywords\n- AI trends\n- machine learning\n"
+                    "6. Content Angles\n- Angle 1"
+        )
+        from src.agents.content_strategist import content_strategist_agent
+        state = create_initial_state("AI trends", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        result = content_strategist_agent(state)
+        assert result["research_summary"] is not None
+
+    @patch("src.agents.content_strategist.llm")
+    def test_extracts_keywords(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(
+            content="5. Recommended Keywords\n- AI trends\n- machine learning\n6. Content Angles"
+        )
+        from src.agents.content_strategist import content_strategist_agent
+        state = create_initial_state("AI trends", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        result = content_strategist_agent(state)
+        assert isinstance(result["seo_keywords"], list)
+
+    def test_handles_missing_research_summary(self):
+        from src.agents.content_strategist import content_strategist_agent
+        state = create_initial_state("AI trends", "test-123")
+        result = content_strategist_agent(state)
+        assert result["error"] is not None
+
+    @patch("src.agents.content_strategist.llm")
+    def test_agent_path_updated(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(content="Structured content brief")
+        from src.agents.content_strategist import content_strategist_agent
+        state = create_initial_state("AI trends", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        result = content_strategist_agent(state)
+        assert "content_strategist" in result["agent_path"]
