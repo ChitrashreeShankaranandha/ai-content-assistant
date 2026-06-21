@@ -126,3 +126,54 @@ class TestContentStrategist:
         state["research_summary"] = "AI is growing fast"
         result = content_strategist_agent(state)
         assert "content_strategist" in result["agent_path"]
+
+
+class TestBlogWriter:
+
+    @patch("src.agents.blog_writer.llm")
+    def test_writes_blog_post(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(
+            content="# AI Trends 2025\n\nAI is transforming industries..."
+        )
+        from src.agents.blog_writer import blog_writer_agent
+        state = create_initial_state("AI trends 2025", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        state["seo_keywords"] = ["AI trends", "machine learning"]
+        result = blog_writer_agent(state)
+        assert result["blog_post"] is not None
+
+    @patch("src.agents.blog_writer.llm")
+    def test_blog_post_contains_content(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(
+            content="# AI Trends 2025\n\nAI is transforming industries..."
+        )
+        from src.agents.blog_writer import blog_writer_agent
+        state = create_initial_state("AI trends 2025", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        state["seo_keywords"] = ["AI trends"]
+        result = blog_writer_agent(state)
+        assert "AI Trends 2025" in result["blog_post"]
+
+    def test_handles_missing_research_summary(self):
+        from src.agents.blog_writer import blog_writer_agent
+        state = create_initial_state("AI trends 2025", "test-123")
+        result = blog_writer_agent(state)
+        assert result["error"] is not None
+
+    @patch("src.agents.blog_writer.llm")
+    def test_agent_path_updated(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(content="# Blog Post")
+        from src.agents.blog_writer import blog_writer_agent
+        state = create_initial_state("AI trends", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        result = blog_writer_agent(state)
+        assert "blog_writer" in result["agent_path"]
+
+    @patch("src.agents.blog_writer.llm")
+    def test_works_without_keywords(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(content="# Blog Post\n\nContent here")
+        from src.agents.blog_writer import blog_writer_agent
+        state = create_initial_state("AI trends", "test-123")
+        state["research_summary"] = "AI is growing fast"
+        result = blog_writer_agent(state)
+        assert result["blog_post"] is not None
