@@ -17,7 +17,7 @@ class Config:
     MAX_RESEARCH_RESULTS = int(os.getenv("MAX_RESEARCH_RESULTS", "5"))
 
     # Image Generation
-    STABILITY_API_KEY = os.getenv("STABILITY_API_KEY")
+    HF_API_TOKEN = os.getenv("HF_API_TOKEN")
     IMAGE_SIZE = "1024x1024"
     IMAGE_OUTPUT_DIR = "generated_images"
 
