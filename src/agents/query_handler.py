@@ -9,14 +9,21 @@ llm = ChatOpenAI(
 )
 
 ROUTER_PROMPT = """You are a content marketing assistant router.
-Analyze the user's query and determine which agent should handle it.
+Analyze the user's query and determine which agent(s) should handle it.
 
-Return ONLY one of these intents (no explanation):
-- research     → user wants information/research on a topic
-- blog         → user wants a blog post written
-- linkedin     → user wants a LinkedIn post written
-- image        → user wants an image generated
-- full_content → user wants research + blog + linkedin + image all together
+Return ONLY ONE of these intents (no explanation, no extra text):
+
+- research      → ONLY information/research on a topic, no content to be written
+- blog          → ONLY a blog post requested (no LinkedIn, no image)
+- linkedin      → ONLY a LinkedIn post requested (no blog, no image)
+- image         → ONLY an image requested (no text content)
+- blog_linkedin → BOTH a blog post AND a LinkedIn post, but NO image
+- full_content  → ALL of: blog + LinkedIn + image (user must explicitly mention image, visual, picture, or say "everything"/"all")
+
+Important rules:
+- Only return "full_content" if the user EXPLICITLY asks for an image/visual/picture, or says "everything" or "all content"
+- If the user asks for blog AND linkedin but does NOT mention image, return "blog_linkedin"
+- If the user asks for only one content type, return that specific intent
 
 User query: {query}
 
@@ -34,7 +41,7 @@ def query_handler_agent(state: ContentState) -> dict:
     intent = response.content.strip().lower()
 
     # Validate intent
-    valid_intents = ["research", "blog", "linkedin", "image", "full_content"]
+    valid_intents = ["research", "blog", "linkedin", "image", "blog_linkedin", "full_content"]
     if intent not in valid_intents:
         intent = "research"  # safe default
 

@@ -47,22 +47,24 @@ def route_after_strategist(state: ContentState) -> str:
         return "blog_writer"
     elif intent == "linkedin":
         return "linkedin_writer"
+    elif intent == "blog_linkedin":
+        return "blog_writer"  # blog first, then linkedin (no image)
     elif intent == "full_content":
-        return "blog_writer"  # full_content does blog first
+        return "blog_writer"  # blog first, then linkedin, then image
     else:
         return END
-
+    
 
 def route_after_blog(state: ContentState) -> str:
-    """After blog, full_content goes to linkedin next."""
+    """After blog, continue to linkedin for blog_linkedin or full_content."""
     intent = state.get("intent", "blog")
-    if intent == "full_content":
+    if intent in ["blog_linkedin", "full_content"]:
         return "linkedin_writer"
     return END
 
 
 def route_after_linkedin(state: ContentState) -> str:
-    """After linkedin, full_content goes to image generator."""
+    """After linkedin, only full_content continues to image generator."""
     intent = state.get("intent", "linkedin")
     if intent == "full_content":
         return "image_generator"
