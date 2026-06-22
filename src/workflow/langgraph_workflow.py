@@ -9,24 +9,26 @@ from src.agents.image_generator import image_generator_agent
 
 
 def route_by_intent(state: ContentState) -> str:
-    """
-    Conditional edge function — reads the intent set by query_handler
-    and returns the name of the next node to execute.
-    """
     intent = state.get("intent", "research")
+    is_followup = state.get("is_followup", False)
+    has_research = bool(state.get("research_summary"))
+
+    print(f"[ROUTER] intent={intent}, is_followup={is_followup}, has_research={has_research}")
+
+    if intent == "image":
+        print("[ROUTER] → image_generator")
+        return "image_generator"
 
     if intent == "research":
+        print("[ROUTER] → research (intent=research)")
         return "research"
-    elif intent == "blog":
-        return "research"  # blog needs research first
-    elif intent == "linkedin":
-        return "research"  # linkedin needs research first
-    elif intent == "image":
-        return "image_generator"
-    elif intent == "full_content":
-        return "research"  # full content starts with research
-    else:
-        return "research"
+
+    if is_followup and has_research:
+        print("[ROUTER] → content_strategist (follow-up with existing research)")
+        return "content_strategist"
+
+    print("[ROUTER] → research (default)")
+    return "research"
 
 
 def route_after_research(state: ContentState) -> str:
@@ -95,7 +97,8 @@ def build_workflow():
         route_by_intent,
         {
             "research": "research",
-            "image_generator": "image_generator"
+            "image_generator": "image_generator",
+            "content_strategist": "content_strategist"
         }
     )
 
@@ -143,8 +146,22 @@ def build_workflow():
     # Image generator is always the last step
     graph.add_edge("image_generator", END)
 
-    return graph.compile()
+    return graph
 
 
-# Module level singleton — build once, reuse everywhere
-workflow = build_workflow()
+# Build raw graph at module level
+_graph = build_workflow()
+
+
+def get_workflow(checkpointer=None):
+    """
+    Compiles and returns the workflow.
+    Pass a checkpointer (e.g. MemorySaver) to enable conversation memory.
+    """
+    if checkpointer:
+        return _graph.compile(checkpointer=checkpointer)
+    return _graph.compile()
+
+
+# Default workflow (no memory) — used by run_demo.py and tests
+workflow = get_workflow()
