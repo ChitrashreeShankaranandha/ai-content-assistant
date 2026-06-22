@@ -34,7 +34,8 @@ def linkedin_writer_agent(state: ContentState) -> dict:
     """
     Writes an engaging LinkedIn post based on research summary.
     """
-    research_summary = state.get("research_summary")
+    # Prefer content_brief (structured) over raw research_summary
+    research_summary = state.get("content_brief") or state.get("research_summary")
 
     if not research_summary:
         return {
