@@ -103,32 +103,31 @@ def image_generator_agent(state: ContentState) -> dict:
     Fallback: OpenAI gpt-image-1 (paid)
     """
     query = state["user_query"]
-
     enhanced_prompt = enhance_prompt(query)
 
-    image_url = None
-    image_local_path = None
-    fallback_used = None
-    image_error = None
+    result = {
+        "image_prompt": enhanced_prompt,
+        "agent_path": [*state["agent_path"], "image_generator"]
+    }
 
     try:
         image_bytes = generate_with_flux(enhanced_prompt)
         filename = f"image_{state['conversation_id']}.png"
         image_local_path = save_image(image_bytes, filename)
-        fallback_used = "flux-schnell"
+        result["image_local_path"] = image_local_path
+        result["fallback_used"] = "flux-schnell"
+        print(f"[image_generator] FLUX saved: {image_local_path}")
+        return result
 
     except Exception as e:
+        print(f"[image_generator] FLUX failed: {e}")
         try:
             image_local_path = generate_with_dalle(enhanced_prompt, state["conversation_id"])
-            fallback_used = "gpt-image-1"
+            result["image_local_path"] = image_local_path
+            result["fallback_used"] = "gpt-image-1"
+            print(f"[image_generator] OpenAI saved: {image_local_path}")
+            return result
         except Exception as e2:
-            image_error = f"All image services failed. FLUX: {e}. OpenAI: {e2}"
-
-    return {
-        "image_prompt": enhanced_prompt,
-        "image_url": image_url,
-        "image_local_path": image_local_path,
-        "fallback_used": fallback_used,
-        "error": image_error,
-        "agent_path": [*state["agent_path"], "image_generator"]
-    }
+            print(f"[image_generator] OpenAI also failed: {e2}")
+            result["error"] = f"All image services failed. FLUX: {e}. OpenAI: {e2}"
+            return result
