@@ -13,7 +13,7 @@ class ContentState(TypedDict):
     conversation_id: str
 
     # Routing
-    intent: Optional[str]        # "research" | "blog" | "linkedin" | "image"
+    intent: Optional[str]        # "research" | "blog" | "linkedin" | "image" | "blog_linkedin" | "full_content"
     agent_path: list[str]        # tracks which agents ran
 
     # Research
@@ -25,6 +25,7 @@ class ContentState(TypedDict):
     linkedin_post: Optional[str]
     image_prompt: Optional[str]
     image_url: Optional[str]
+    image_local_path: Optional[str] 
 
     # Quality
     quality_score: Optional[float]
@@ -49,6 +50,7 @@ def create_initial_state(user_query: str, conversation_id: str) -> ContentState:
         linkedin_post=None,
         image_prompt=None,
         image_url=None,
+        image_local_path=None,
         quality_score=None,
         seo_keywords=None,
         error=None,
