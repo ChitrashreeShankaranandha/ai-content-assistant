@@ -23,8 +23,26 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("✨ ContentAlchemy")
-st.caption("Your AI-powered multi-agent content marketing assistant")
+# Centered title block with custom styling
+st.markdown(
+    """
+    <div style="text-align: center; padding: 1rem 0 0.5rem 0;">
+        <h1 style="color: #1f77b4; font-size: 3rem; margin-bottom: 0.2rem;">
+            ✨ AI ContentAlchemy
+        </h1>
+        <p style="font-size: 1.1rem; color: #555; margin-bottom: 0.2rem;">
+            Your AI-powered content marketing studio
+        </p>
+        <p style="font-size: 1.1rem; color: #555; margin-bottom: 0.2rem;">
+            Tell it what content you need — it researches, writes, and designs in one go.
+        </p>
+        <p style="font-size: 0.85rem; color: #888; margin-top: 0.5rem;">
+            © 2026 Chitrashree Shankaranandha. All rights reserved.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 
 # ---------- Session state initialization ----------
@@ -44,17 +62,25 @@ if "workflow" not in st.session_state:
 
 # ---------- Sidebar ----------
 with st.sidebar:
-    st.header("ℹ️ About")
+    st.header("✨ AI Content Assistant")
     st.markdown("""
-    **ContentAlchemy** is a multi-agent AI system that creates content for you.
+    ### 🎯 What I can create for you:
+    - 🔍 **Research summaries** with sources
+    - ✍️ **SEO blog posts** (1200-1500 words)
+    - 📱 **LinkedIn posts** with hashtag strategy
+    - 🎨 **Marketing images**
+    - 📦 **Full content packages** (research + blog + LinkedIn + image)
 
-    **Try asking:**
+    ### 💡 Example prompts:
     - *Research the latest AI trends*
     - *Write a blog post about remote work*
     - *Create a LinkedIn post about agentic AI*
     - *Generate an image of a futuristic city*
     - *Write a blog and LinkedIn post about climate tech*
-    - *Create everything about quantum computing* (full content)
+    - *Create everything about quantum computing*
+
+    ### 🔄 Multi-turn chats
+    Ask a follow-up like *"now make a LinkedIn post from that research"* — I'll remember the context.
     """)
 
     st.divider()
@@ -144,8 +170,13 @@ if user_query := st.chat_input("Ask me to create content..."):
         if result.get("error"):
             response_parts.append(f"⚠️ **Error:** {result['error']}")
 
-        if not response_parts:
+        # Check if an image was generated (image-only intent)
+        has_image = bool(result.get("image_local_path") or result.get("image_url"))
+
+        if not response_parts and not has_image:
             response_parts.append("Hmm, I couldn't generate any content. Try rephrasing your request.")
+        elif not response_parts and has_image:
+            response_parts.append("### 🎨 Here's your generated image:")
 
         full_response = "\n\n---\n\n".join(response_parts)
         st.markdown(full_response)
