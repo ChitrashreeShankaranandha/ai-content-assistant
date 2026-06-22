@@ -14,11 +14,13 @@ class ContentState(TypedDict):
 
     # Routing
     intent: Optional[str]        # "research" | "blog" | "linkedin" | "image" | "blog_linkedin" | "full_content"
+    is_followup: Optional[bool]  # True if this query builds on previous turns
     agent_path: list[str]        # tracks which agents ran
 
     # Research
     research_results: Optional[list[dict]]
     research_summary: Optional[str]
+    content_brief: Optional[str]
 
     # Content outputs
     blog_post: Optional[str]
@@ -43,9 +45,11 @@ def create_initial_state(user_query: str, conversation_id: str) -> ContentState:
         user_query=user_query,
         conversation_id=conversation_id,
         intent=None,
+        is_followup=None,
         agent_path=[],
         research_results=None,
         research_summary=None,
+        content_brief=None,
         blog_post=None,
         linkedin_post=None,
         image_prompt=None,
