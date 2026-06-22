@@ -51,7 +51,7 @@ def content_strategist_agent(state: ContentState) -> dict:
     keywords = extract_keywords(content)
 
     return {
-        "research_summary": content,
+        "content_brief": content,           # save to new field
         "seo_keywords": keywords,
         "agent_path": [*state["agent_path"], "content_strategist"]
     }
