@@ -11,7 +11,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import streamlit as st
-from src.workflow.langgraph_workflow import workflow
+from src.workflow.langgraph_workflow import get_workflow
+from langgraph.checkpoint.memory import MemorySaver
 from src.workflow.state_management import create_initial_state
 
 
@@ -35,6 +36,11 @@ if "messages" not in st.session_state:
 if "conversation_id" not in st.session_state:
     st.session_state.conversation_id = str(uuid.uuid4())
 
+if "checkpointer" not in st.session_state:
+    st.session_state.checkpointer = MemorySaver()
+
+if "workflow" not in st.session_state:
+    st.session_state.workflow = get_workflow(st.session_state.checkpointer)
 
 # ---------- Sidebar ----------
 with st.sidebar:
@@ -56,6 +62,8 @@ with st.sidebar:
     if st.button("🔄 New Conversation"):
         st.session_state.messages = []
         st.session_state.conversation_id = str(uuid.uuid4())
+        st.session_state.checkpointer = MemorySaver()  # fresh memory
+        st.session_state.workflow = get_workflow(st.session_state.checkpointer)
         st.rerun()
 
 
@@ -81,17 +89,50 @@ if user_query := st.chat_input("Ask me to create content..."):
     # Run the workflow
     with st.chat_message("assistant"):
         with st.spinner("🤖 Agents are working..."):
-            state = create_initial_state(user_query, st.session_state.conversation_id)
-            result = workflow.invoke(state)
+            # When using a checkpointer with thread_id, only pass the NEW data.
+            # LangGraph will load saved state for this thread and merge.
+            # Passing None values would overwrite saved state.
+            history_messages = [
+                {"role": m["role"], "content": m["content"]}
+                for m in st.session_state.messages
+            ]
+
+            update = {
+                "user_query": user_query,
+                "messages": history_messages,
+                "conversation_id": st.session_state.conversation_id,
+                "agent_path": [],  # reset path for this turn
+                # Clear per-turn outputs so old ones don't leak through
+                "blog_post": None,
+                "linkedin_post": None,
+                "image_url": None,
+                "image_local_path": None,
+                "image_prompt": None,
+                "error": None,
+                "fallback_used": None,
+                "intent": None,
+                "is_followup": None,
+            }
+
+            config = {"configurable": {"thread_id": st.session_state.conversation_id}}
+            result = st.session_state.workflow.invoke(update, config=config)
 
         # Show agent path
         path = " → ".join(result.get("agent_path", []))
         st.caption(f"🛤️ {path}")
 
+        # Debug routing info
+        with st.expander("🔍 Debug: Routing"):
+            st.write(f"**Intent:** `{result.get('intent')}`")
+            st.write(f"**Is follow-up:** `{result.get('is_followup')}`")
+            st.write(f"**Has research_summary in state:** `{bool(result.get('research_summary'))}`")
+            st.write(f"**Messages in update:** {len(update.get('messages', []))}")
+
         # Build the response based on what was generated
         response_parts = []
 
-        if result.get("research_summary"):
+        # Only show research summary if research_agent ran THIS turn
+        if "research_agent" in result.get("agent_path", []) and result.get("research_summary"):
             response_parts.append("### 📚 Research Summary\n" + result["research_summary"])
 
         if result.get("blog_post"):
