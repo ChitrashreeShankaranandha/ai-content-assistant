@@ -7,7 +7,7 @@ class TestQueryHandler:
 
     @patch("src.agents.query_handler.llm")
     def test_routes_blog_intent(self, mock_llm):
-        mock_llm.invoke.return_value = MagicMock(content="blog")
+        mock_llm.invoke.return_value = MagicMock(content='{"intent": "blog", "is_followup": false}')
         from src.agents.query_handler import query_handler_agent
         state = create_initial_state("Write a blog about AI", "test-123")
         result = query_handler_agent(state)
@@ -15,7 +15,7 @@ class TestQueryHandler:
 
     @patch("src.agents.query_handler.llm")
     def test_routes_research_intent(self, mock_llm):
-        mock_llm.invoke.return_value = MagicMock(content="research")
+        mock_llm.invoke.return_value = MagicMock(content='{"intent": "research", "is_followup": false}')
         from src.agents.query_handler import query_handler_agent
         state = create_initial_state("Research quantum computing", "test-123")
         result = query_handler_agent(state)
@@ -23,7 +23,7 @@ class TestQueryHandler:
 
     @patch("src.agents.query_handler.llm")
     def test_invalid_intent_defaults_to_research(self, mock_llm):
-        mock_llm.invoke.return_value = MagicMock(content="something_random")
+        mock_llm.invoke.return_value = MagicMock(content='{"intent": "something_random", "is_followup": false}')
         from src.agents.query_handler import query_handler_agent
         state = create_initial_state("Do something", "test-123")
         result = query_handler_agent(state)
@@ -31,11 +31,25 @@ class TestQueryHandler:
 
     @patch("src.agents.query_handler.llm")
     def test_agent_path_updated(self, mock_llm):
-        mock_llm.invoke.return_value = MagicMock(content="blog")
+        mock_llm.invoke.return_value = MagicMock(content='{"intent": "blog", "is_followup": false}')
         from src.agents.query_handler import query_handler_agent
         state = create_initial_state("Write a blog", "test-123")
         result = query_handler_agent(state)
         assert "query_handler" in result["agent_path"]
+    
+    @patch("src.agents.query_handler.llm")
+    def test_detects_followup(self, mock_llm):
+        mock_llm.invoke.return_value = MagicMock(content='{"intent": "linkedin", "is_followup": true}')
+        from src.agents.query_handler import query_handler_agent
+        state = create_initial_state("Now write a LinkedIn post from that", "test-123")
+        state["messages"] = [
+            {"role": "user", "content": "Research AI trends"},
+            {"role": "assistant", "content": "Here is research on AI trends..."},
+            {"role": "user", "content": "Now write a LinkedIn post from that"}
+        ]
+        result = query_handler_agent(state)
+        assert result["is_followup"] is True
+        assert result["intent"] == "linkedin"
 
 
 class TestResearchAgent:
@@ -99,7 +113,7 @@ class TestContentStrategist:
         state = create_initial_state("AI trends", "test-123")
         state["research_summary"] = "AI is growing fast"
         result = content_strategist_agent(state)
-        assert result["research_summary"] is not None
+        assert result["content_brief"] is not None
 
     @patch("src.agents.content_strategist.llm")
     def test_extracts_keywords(self, mock_llm):
