@@ -1,5 +1,12 @@
+"""
+Image Generator Agent.
+
+Primary: FLUX.1-schnell via Hugging Face Inference (free, fast ~5-10s)
+Fallback: OpenAI gpt-image-1 (paid)
+"""
+
 import requests
-import os
+import base64
 from pathlib import Path
 from langchain_openai import ChatOpenAI
 from src.core.config import config
@@ -11,11 +18,11 @@ llm = ChatOpenAI(
     temperature=0.8
 )
 
-# Hugging Face SDXL endpoint
-HF_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+# Hugging Face FLUX.1-schnell endpoint (free, fast generation)
+HF_API_URL = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
 
 PROMPT_ENHANCER = """You are an expert at writing image generation prompts.
-Convert this content topic into a detailed, vivid image prompt for Stable Diffusion.
+Convert this content topic into a detailed, vivid image prompt.
 
 Topic: {query}
 
@@ -36,32 +43,45 @@ def enhance_prompt(query: str) -> str:
     return response.content.strip()
 
 
-def generate_with_sdxl(prompt: str) -> bytes:
-    """Calls Hugging Face SDXL API and returns image bytes."""
-    headers = {"Authorization": f"Bearer {config.HF_API_TOKEN}"}
-    payload = {"inputs": prompt}
+def generate_with_flux(prompt: str) -> bytes:
+    """Calls Hugging Face FLUX.1-schnell, returns image bytes."""
+    headers = {
+        "Authorization": f"Bearer {config.HF_API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "inputs": prompt,
+        "parameters": {"num_inference_steps": 25}
+    }
 
-    response = requests.post(HF_API_URL, headers=headers, json=payload)
+    response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=60)
 
     if response.status_code != 200:
-        raise Exception(f"HF API error: {response.status_code} - {response.text}")
+        raise Exception(f"HF API error: {response.status_code} - {response.text[:300]}")
+
+    if len(response.content) < 1000:
+        raise Exception(f"HF returned suspiciously small response: {response.text[:300]}")
 
     return response.content
 
 
-def generate_with_dalle(prompt: str) -> str:
-    """Fallback: generates image using DALL-E 3, returns URL."""
+def generate_with_dalle(prompt: str, conversation_id: str) -> str:
+    """Fallback: generates image using OpenAI gpt-image-1, saves locally, returns file path."""
     from openai import OpenAI
     client = OpenAI(api_key=config.OPENAI_API_KEY)
 
     response = client.images.generate(
-        model="dall-e-3",
+        model="gpt-image-1",
         prompt=prompt,
         size=config.IMAGE_SIZE,
-        quality="standard",
         n=1
     )
-    return response.data[0].url
+
+    image_b64 = response.data[0].b64_json
+    image_bytes = base64.b64decode(image_b64)
+
+    filename = f"image_{conversation_id}.png"
+    return save_image(image_bytes, filename)
 
 
 def save_image(image_bytes: bytes, filename: str) -> str:
@@ -79,33 +99,36 @@ def save_image(image_bytes: bytes, filename: str) -> str:
 def image_generator_agent(state: ContentState) -> dict:
     """
     Generates an image for the content topic.
-    Primary: Stable Diffusion XL via Hugging Face
-    Fallback: DALL-E 3 via OpenAI
+    Primary: FLUX.1-schnell via Hugging Face (free)
+    Fallback: OpenAI gpt-image-1 (paid)
     """
     query = state["user_query"]
 
-    # Step 1: Enhance the prompt
     enhanced_prompt = enhance_prompt(query)
 
-    # Step 2: Try SDXL first, fall back to DALL-E 3
     image_url = None
     image_local_path = None
     fallback_used = None
+    image_error = None
 
     try:
-        image_bytes = generate_with_sdxl(enhanced_prompt)
+        image_bytes = generate_with_flux(enhanced_prompt)
         filename = f"image_{state['conversation_id']}.png"
         image_local_path = save_image(image_bytes, filename)
+        fallback_used = "flux-schnell"
 
     except Exception as e:
-        print(f"SDXL failed: {e}. Falling back to DALL-E 3...")
-        fallback_used = "dall-e-3"
-        image_url = generate_with_dalle(enhanced_prompt)
+        try:
+            image_local_path = generate_with_dalle(enhanced_prompt, state["conversation_id"])
+            fallback_used = "gpt-image-1"
+        except Exception as e2:
+            image_error = f"All image services failed. FLUX: {e}. OpenAI: {e2}"
 
     return {
         "image_prompt": enhanced_prompt,
         "image_url": image_url,
         "image_local_path": image_local_path,
         "fallback_used": fallback_used,
+        "error": image_error,
         "agent_path": [*state["agent_path"], "image_generator"]
     }

@@ -234,14 +234,14 @@ class TestLinkedInWriter:
 
 class TestImageGenerator:
 
-    @patch("src.agents.image_generator.generate_with_sdxl")
+    @patch("src.agents.image_generator.generate_with_flux")
     @patch("src.agents.image_generator.enhance_prompt")
     @patch("src.agents.image_generator.save_image")
-    def test_generates_image_with_sdxl(
-        self, mock_save, mock_enhance, mock_sdxl
+    def test_generates_image_with_flux(
+        self, mock_save, mock_enhance, mock_flux
     ):
         mock_enhance.return_value = "A professional image of AI technology"
-        mock_sdxl.return_value = b"fake_image_bytes"
+        mock_flux.return_value = b"fake_image_bytes"
         mock_save.return_value = "generated_images/image_test-123.png"
 
         from src.agents.image_generator import image_generator_agent
@@ -250,33 +250,33 @@ class TestImageGenerator:
 
         assert result["image_prompt"] is not None
         assert result["image_local_path"] is not None
-        assert result["fallback_used"] is None
+        assert result["fallback_used"] == "flux-schnell"
 
     @patch("src.agents.image_generator.generate_with_dalle")
-    @patch("src.agents.image_generator.generate_with_sdxl")
+    @patch("src.agents.image_generator.generate_with_flux")
     @patch("src.agents.image_generator.enhance_prompt")
-    def test_falls_back_to_dalle_when_sdxl_fails(
-        self, mock_enhance, mock_sdxl, mock_dalle
+    def test_falls_back_to_openai_when_flux_fails(
+        self, mock_enhance, mock_flux, mock_dalle
     ):
         mock_enhance.return_value = "A professional image of AI"
-        mock_sdxl.side_effect = Exception("HF API error")
-        mock_dalle.return_value = "https://dalle.example.com/image.png"
+        mock_flux.side_effect = Exception("HF API error")
+        mock_dalle.return_value = "generated_images/image_test-123.png"
 
         from src.agents.image_generator import image_generator_agent
         state = create_initial_state("AI trends", "test-123")
         result = image_generator_agent(state)
 
-        assert result["fallback_used"] == "dall-e-3"
-        assert result["image_url"] == "https://dalle.example.com/image.png"
+        assert result["fallback_used"] == "gpt-image-1"
+        assert result["image_local_path"] == "generated_images/image_test-123.png"
 
-    @patch("src.agents.image_generator.generate_with_sdxl")
+    @patch("src.agents.image_generator.generate_with_flux")
     @patch("src.agents.image_generator.enhance_prompt")
     @patch("src.agents.image_generator.save_image")
     def test_agent_path_updated(
-        self, mock_save, mock_enhance, mock_sdxl
+        self, mock_save, mock_enhance, mock_flux
     ):
         mock_enhance.return_value = "Professional AI image"
-        mock_sdxl.return_value = b"fake_image_bytes"
+        mock_flux.return_value = b"fake_image_bytes"
         mock_save.return_value = "generated_images/test.png"
 
         from src.agents.image_generator import image_generator_agent
@@ -285,14 +285,14 @@ class TestImageGenerator:
 
         assert "image_generator" in result["agent_path"]
 
-    @patch("src.agents.image_generator.generate_with_sdxl")
+    @patch("src.agents.image_generator.generate_with_flux")
     @patch("src.agents.image_generator.enhance_prompt")
     @patch("src.agents.image_generator.save_image")
     def test_prompt_is_enhanced(
-        self, mock_save, mock_enhance, mock_sdxl
+        self, mock_save, mock_enhance, mock_flux
     ):
         mock_enhance.return_value = "Detailed enhanced prompt for AI image"
-        mock_sdxl.return_value = b"fake_image_bytes"
+        mock_flux.return_value = b"fake_image_bytes"
         mock_save.return_value = "generated_images/test.png"
 
         from src.agents.image_generator import image_generator_agent
