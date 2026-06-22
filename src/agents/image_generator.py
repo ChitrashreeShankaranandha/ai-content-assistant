@@ -37,9 +37,12 @@ Requirements:
 Return ONLY the image prompt, nothing else."""
 
 
-def enhance_prompt(query: str) -> str:
+def enhance_prompt(query: str, context: str = "") -> str:
     """Uses LLM to convert topic into a detailed image generation prompt."""
-    response = llm.invoke(PROMPT_ENHANCER.format(query=query))
+    full_query = query
+    if context:
+        full_query = f"{query}\n\nRelevant context from earlier in the conversation:\n{context[:1500]}"
+    response = llm.invoke(PROMPT_ENHANCER.format(query=full_query))
     return response.content.strip()
 
 
@@ -103,7 +106,9 @@ def image_generator_agent(state: ContentState) -> dict:
     Fallback: OpenAI gpt-image-1 (paid)
     """
     query = state["user_query"]
-    enhanced_prompt = enhance_prompt(query)
+    # Use previous research/brief as context if available (for follow-ups)
+    context = state.get("content_brief") or state.get("research_summary") or ""
+    enhanced_prompt = enhance_prompt(query, context=context)
 
     result = {
         "image_prompt": enhanced_prompt,
